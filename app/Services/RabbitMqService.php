@@ -4,15 +4,58 @@
 namespace App\Services;
 
 
+use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;
+use PhpAmqpLib\Wire\AMQPTable;
 
 class RabbitMqService
 {
+    CONST TYPE_DIRECT = 'direct';
+
+    CONST ERROR_QUEUE_ROUTE_KEY = '#';
+
+    /**
+     * @var AMQPStreamConnection .MQ连接
+     */
     protected $connection;
 
-    public function __construct()
+    /**
+     * @var int .延迟时间
+     */
+    protected $ttl;
+
+    /**
+     * @var .交换机类型, 默认为 direct
+     */
+    protected $exchangeType;
+
+    /**
+     * @var .交换机名称
+     */
+    protected $exchangeName;
+
+    /**
+     * @var .队列名称
+     */
+    protected $queueName;
+
+    /**
+     * @var .路由
+     */
+    protected $routeKey;
+
+    /**
+     * @var AMQPChannel[] .信道数组
+     */
+    protected $channels = [];
+
+
+    public function __construct($ttl = 5)
     {
+        $this->ttl = $ttl;
+        $this->exchangeType = self::TYPE_DIRECT;
+
         $config = [
             'host' => config('rabbitmq.host'),
             'port' => config('rabbitmq.port'),
@@ -21,57 +64,138 @@ class RabbitMqService
             'vhost' => '/',     //默认虚拟主机
         ];
 
-        return $this->connection = new AMQPStreamConnection(
-            $config['host'],
-            $config['port'],
-            $config['user'],
-            $config['password'],
-            $config['vhost']
-        );
+        return $this->connection = new AMQPStreamConnection($config['host'], $config['port'], $config['user'], $config['password'], $config['vhost']);
+    }
+
+    /**
+     * 异常队列
+     * @return string
+     */
+    public function getErrorQueueName()
+    {
+        return $this->queueName . '@error';
+    }
+
+    /**
+     * 异常数据存放的交换机
+     * @return string
+     */
+    public function getErrorExchangeName()
+    {
+        return $this->exchangeName . '.error';
+    }
+
+    /**
+     * 返回信道
+     *
+     * @param $channelId
+     * @return AMQPChannel
+     */
+    public function getChannel($channelId = null)
+    {
+        $index = $channelId ?: 'default';
+        if (!array_key_exists($index, $this->channels)){
+            $this->channels[$index] = $this->connection->channel($channelId);
+        }
+
+        return $this->channels[$index];
+    }
+
+    /**
+     * 声明交换机
+     */
+    public function declareExchange()
+    {
+        // 获取信道
+        $channel = $this->getChannel();
+
+        // 声明名称
+        $exchangeType = $this->exchangeType;
+        $exchangeName = $this->exchangeName;
+        $errorExchangeName = $this->getErrorExchangeName();
+        $args = ['x-delayed-type' => 'direct'];
+
+        // 指定交换机
+        $channel->exchange_declare($exchangeName, $exchangeType, false, true, false, false, false, $args);
+        $channel->exchange_declare($errorExchangeName, $exchangeType, false, true, false);
+    }
+
+
+    /**
+     * 声明队列
+     */
+    public function declareQueue()
+    {
+        $channel = $this->getChannel();
+
+        // 声明名称
+        $exchangeName = $this->exchangeName;
+        $queueName = $this->queueName;
+        $routeKey  = $this->routeKey;
+        $errorExchangeName = $this->getErrorExchangeName();
+        $errorQueueName    = $this->getErrorQueueName();
+
+        // 死信队列
+        $channel->queue_declare($queueName, false, true, false, false, false, new AMQPTable([
+            'x-dead-letter-exchange'    => $errorExchangeName,
+            'x-dead-letter-routing-key' => self::ERROR_QUEUE_ROUTE_KEY
+        ]));
+
+        // 队列和交换器绑定/绑定队列和类型
+        $channel->queue_bind($queueName, $exchangeName, $routeKey);
+
+        // 失败队列
+        $channel->queue_declare($errorQueueName, false,true,false,false);
+        $channel->queue_bind($errorQueueName, $errorExchangeName,self::ERROR_QUEUE_ROUTE_KEY);
     }
 
 
     /**
      * 数据插入到mq队列中（生产者）
      * 注：队列 和 交换机的 durable必须保持一致
-     * @param $queue .队列名称
-     * @param $exchange .交换机
-     * @param $routingKey .路由名称
      * @param $messageBody .消息体
      */
-    public function push($queue, $exchange, $routingKey, $messageBody)
+    public function push($messageBody)
     {
-        // 构建通道（mq的数据存储与获取是通过通道进行数据传输的）
-        $channel = $this->connection->channel();
+        try {
 
-        // 声明队列, durable 代表持久化
-        $channel->queue_declare($queue, false, true, false, false);
+            // 构建通道（mq的数据存储与获取是通过通道进行数据传输的）
+            $channel = $this->getChannel();
 
-        // 指定交换机，若是路由的名称不匹配不会把数据放入队列中
-        $channel->exchange_declare($exchange, 'direct', false, true, false);
+            // 指定交换机，若是路由的名称不匹配不会把数据放入队列中
+            $this->declareExchange();
 
-        // 队列和交换器绑定/绑定队列和类型
-        $channel->queue_bind($queue, $exchange, $routingKey);
+            // 声明队列, durable 代表持久化
+            if ($this->exchangeType == self::TYPE_DIRECT) {
+                $this->declareQueue();
+            }
 
-        $config = [
-            'content_type' => 'text/plain',
-            'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT
-        ];
+            // ['delivery_mode' => 2] 设置消息持久化
+            $properties = [
+                'content_type' => 'text/plain',
+                'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
+                'application_headers' => new AMQPTable(['x-delay' => $this->ttl])
+            ];
 
-        // 实例化消息推送类
-        $message = new AMQPMessage($messageBody, $config);
+            // 实例化消息推送类
+            $message = $this->prepareMessage($messageBody, $properties);
 
-        // 消息推送到路由名称为$exchange的队列当中
-        $channel->basic_publish($message, $exchange, $routingKey);
+            // 消息推送到路由名称为$exchange的队列当中
+            $channel->basic_publish($message, $this->exchangeName, $this->routeKey);
 
-        // 日志记录
-        logger()->info('生产者消息', [$messageBody]);
+            // 日志记录
+            logger()->info('生产者消息', [$messageBody]);
 
-        //关闭消息推送资源
-        $channel->close();
+            //关闭消息推送资源
+            $channel->close();
 
-        //关闭mq资源
-        $this->connection->close();
+            //关闭mq资源
+            $this->connection->close();
+
+        } catch (\Exception $e) {
+
+            logger()->error('生产者队列 error message: ' . $e->getMessage());
+        }
     }
 
 
@@ -86,7 +210,7 @@ class RabbitMqService
         logger()->info('开始消费');
 
         // 连接到 RabbitMQ 服务器并打开通道
-        $channel = $this->connection->channel();
+        $channel = $this->getChannel();
 
         // 声明要获取内容的队列
         $channel->queue_declare($queue, false, true, false, false);
@@ -115,5 +239,26 @@ class RabbitMqService
         $this->connection->close();
 
         return true;
+    }
+
+
+    /**
+     * 数据处理
+     * @param $message
+     * @param null $properties
+     * @return AMQPMessage
+     * @throws \Exception
+     */
+    public function prepareMessage($message, $properties = null)
+    {
+        if (empty($message)) {
+            throw new \Exception('rabbitMq message can not be empty');
+        }
+        // json化 数组或对象
+        if (is_array($message) || is_object($message)) {
+            $message = json_encode($message, JSON_UNESCAPED_UNICODE);
+        }
+
+        return new AMQPMessage($message, $properties);
     }
 }
