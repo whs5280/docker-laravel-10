@@ -153,6 +153,7 @@ class RabbitMqService
     /**
      * 数据插入到mq队列中（生产者）
      * 注：队列 和 交换机的 durable必须保持一致
+     *
      * @param $messageBody .消息体
      */
     public function push($messageBody)
@@ -201,33 +202,57 @@ class RabbitMqService
 
     /**
      * 消费者：取出消息进行消费，并返回
-     * @param $queue .队列名称
+     *
      * @param $callback .回调函数
+     * @param bool $no_ack .若值为false，表示手动ACK应答,需要代码发送ACK.（消息确认机制）
      * @return bool
+     * @throws \ErrorException
      */
-    public function pop($queue, $callback)
+    public function pop($callback, $no_ack = false)
     {
         logger()->info('开始消费');
 
         // 连接到 RabbitMQ 服务器并打开通道
         $channel = $this->getChannel();
 
-        // 声明要获取内容的队列
-        $channel->queue_declare($queue, false, true, false, false);
+        // 声明交换机和队列
+        $queue = $this->queueName;
+        $this->declareExchange();
+        $this->declareQueue();
 
-        // 获取消息队列的消息
-        $msg = $channel->basic_get($queue);
+        if ($no_ack) {
 
-        // ack机制，手动确定消息消费
-        $channel->basic_ack($msg->delivery_info['delivery_tag']);
+            // 获取消息队列的消息
+            $msg = $channel->basic_get($queue);
+            // ack机制，手动确定消息消费
+            $channel->basic_ack($msg->delivery_info['delivery_tag']);
+            //消息主题返回给回调函数
+            $res = $callback($msg->body);
+            if($res){
 
-        //消息主题返回给回调函数
-        $res = $callback($msg->body);
-        if($res){
+                logger()->info('ack验证');
+                //ack验证，如果消费失败了，从新获取一次数据再次消费
+                $channel->basic_ack($msg->getDeliveryTag());
+            }
 
-            logger()->info('ack验证');
-            //ack验证，如果消费失败了，从新获取一次数据再次消费
-            $channel->basic_ack($msg->getDeliveryTag());
+        } else {
+            /*
+             * 流量控制 Specifies QoS
+             * 消费者在开启acknowledge的情况下，对接收到的消息需要异步对消息进行确认
+             * 由于消费者自身处理能力有限，从rabbitmq获取一定数量的消息后，希望rabbitmq不再将队列中的消息推送过来，
+             * 当对消息处理完后（即对消息进行了ack，并且有能力处理更多的消息）再接收来自队列的消息
+             * @param int $prefetch_size   最大unacked消息的字节数
+             * @param int $prefetch_count  最大unacked消息的条数
+             * @param bool $a_global       上述限制的限定对象，false限制单个消费者，true限制整个通道
+             * @return mixed
+            */
+
+            // 当有多个消费者进行循环调度时，下面一行确保公平分发队列中的信息，每个消费者每次取一条
+            $channel->basic_qos(0, 1, false);
+            $channel->basic_consume($queue, '', false, $no_ack, false, false, $callback);
+            while (count($channel->callbacks)) {
+                $channel->wait();
+            }
         }
 
         logger()->info('ack消费完成');
