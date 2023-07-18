@@ -120,7 +120,6 @@ class RabbitMqService
         $channel->exchange_declare($errorExchangeName, $exchangeType, false, true, false);
     }
 
-
     /**
      * 声明队列
      */
@@ -187,12 +186,6 @@ class RabbitMqService
             // 日志记录
             logger()->info('生产者消息', [$messageBody]);
 
-            //关闭消息推送资源
-            $channel->close();
-
-            //关闭mq资源
-            $this->connection->close();
-
         } catch (\Exception $e) {
 
             logger()->error('生产者队列 error message: ' . $e->getMessage());
@@ -257,12 +250,6 @@ class RabbitMqService
 
         logger()->info('ack消费完成');
 
-        //关闭消息推送资源
-        $channel->close();
-
-        //关闭mq资源
-        $this->connection->close();
-
         return true;
     }
 
@@ -285,5 +272,30 @@ class RabbitMqService
         }
 
         return new AMQPMessage($message, $properties);
+    }
+
+
+    /**
+     * 析构函数
+     */
+    public function __destruct()
+    {
+        $this->close();
+    }
+
+    /**
+     * 关闭连接
+     */
+    public function close()
+    {
+        // 关闭消息推送资源
+        foreach ($this->channels as $channel){
+            $channel->close();
+        }
+
+        // 关闭mq资源
+        if ($this->connection != null && $this->connection->isConnected()) {
+            $this->connection->close();
+        }
     }
 }
