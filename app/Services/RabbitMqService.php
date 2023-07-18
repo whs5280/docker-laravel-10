@@ -68,7 +68,28 @@ class RabbitMqService
     }
 
     /**
+     * 绑定路由key
+     *
+     * @param string $routeKey
+     */
+    public function setRouteKey($routeKey)
+    {
+        $this->routeKey = $routeKey;
+    }
+
+    /**
+     * 设置queue名称
+     *
+     * @param string $queueName
+     */
+    public function setQueueName($queueName)
+    {
+        $this->queueName= $queueName;
+    }
+
+    /**
      * 异常队列
+     *
      * @return string
      */
     public function getErrorQueueName()
@@ -78,6 +99,7 @@ class RabbitMqService
 
     /**
      * 异常数据存放的交换机
+     *
      * @return string
      */
     public function getErrorExchangeName()
@@ -201,7 +223,7 @@ class RabbitMqService
      * @return bool
      * @throws \ErrorException
      */
-    public function pop($callback, $no_ack = false)
+    public function listen($callback, $no_ack = false)
     {
         logger()->info('开始消费');
 
@@ -256,6 +278,7 @@ class RabbitMqService
 
     /**
      * 数据处理
+     *
      * @param $message
      * @param null $properties
      * @return AMQPMessage
