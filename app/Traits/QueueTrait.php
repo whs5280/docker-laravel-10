@@ -15,5 +15,6 @@ trait QueueTrait
             'class_name' => $this->getMorphClass(),
             'id'         => $id
         ]);
+        $service->writeMessage($id, $this->getMorphClass(), 'update');
     }
 }

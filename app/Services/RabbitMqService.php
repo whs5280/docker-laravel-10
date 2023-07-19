@@ -4,6 +4,7 @@
 namespace App\Services;
 
 
+use App\Models\RabbitMqLog;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;
@@ -295,6 +296,24 @@ class RabbitMqService
         }
 
         return new AMQPMessage($message, $properties);
+    }
+
+    /**
+     * 写入数据库
+     * @param $ableId
+     * @param $ableType
+     * @param $event
+     * @param int $status
+     */
+    public function writeMessage($ableId, $ableType, $event, $status = 0)
+    {
+        RabbitMqLog::query()->updateOrCreate([
+            'able_id'   => $ableId,
+            'able_type' => $ableType,
+            'event'     => $event,
+        ], [
+            'status' => $status
+        ]);
     }
 
 
