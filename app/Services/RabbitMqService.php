@@ -58,11 +58,11 @@ class RabbitMqService
         $this->exchangeType = $type;
 
         $config = [
-            'host' => env('RABBITMQ_HOST'),
-            'port' => env('RABBITMQ_PORT'),
-            'user' => env('RABBITMQ_USER'),
-            'password' => env('RABBITMQ_PASSWORD'),
-            'vhost' => env('RABBITMQ_VHOST'),
+            'host' => config('rabbitmq.host'),
+            'port' => config('rabbitmq.port'),
+            'user' => config('rabbitmq.user'),
+            'password' => config('rabbitmq.password'),
+            'vhost' => config('rabbitmq.vhost'),
         ];
 
         return $this->connection = new AMQPStreamConnection($config['host'], $config['port'], $config['user'], $config['password'], $config['vhost']);
