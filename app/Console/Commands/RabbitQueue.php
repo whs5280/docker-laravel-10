@@ -30,5 +30,7 @@ class RabbitQueue extends Command
     {
         // 测试
         dispatch(new HandleConsume());
+
+        $this->info('生产者---开始投递');
     }
 }
