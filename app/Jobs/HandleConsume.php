@@ -48,12 +48,13 @@ class HandleConsume implements ShouldQueue
 
             }catch (\Exception $e){
 
-                logger()->error('生产者队列 error message: ' . $e->getMessage());
+                logger()->error('消费者队列 error message: ' . $e->getMessage());
                 // 拒绝消息，会把消息投递到错误队列
                 $message->delivery_info['channel']->basic_reject($message->delivery_info['delivery_tag'], false);
             }
         };
 
+        $mq->setExchangeName('user_info');
         $mq->setQueueName('user_info');
         $mq->setRouteKey( '*.user.*');
         $mq->listen($callback);

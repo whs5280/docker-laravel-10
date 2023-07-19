@@ -52,20 +52,30 @@ class RabbitMqService
     protected $channels = [];
 
 
-    public function __construct($ttl = 5)
+    public function __construct($ttl = 5, $type = 'direct')
     {
         $this->ttl = $ttl;
-        $this->exchangeType = self::TYPE_DIRECT;
+        $this->exchangeType = $type;
 
         $config = [
-            'host' => config('rabbitmq.host'),
-            'port' => config('rabbitmq.port'),
-            'user' => config('rabbitmq.user'),
-            'password' => config('rabbitmq.password'),
-            'vhost' => '/',     //默认虚拟主机
+            'host' => env('RABBITMQ_HOST'),
+            'port' => env('RABBITMQ_PORT'),
+            'user' => env('RABBITMQ_USER'),
+            'password' => env('RABBITMQ_PASSWORD'),
+            'vhost' => env('RABBITMQ_VHOST'),
         ];
 
         return $this->connection = new AMQPStreamConnection($config['host'], $config['port'], $config['user'], $config['password'], $config['vhost']);
+    }
+
+    /**
+     * 设置交换机名称
+     *
+     * @param $exchange
+     */
+    public function setExchangeName($exchange)
+    {
+        $this->exchangeName= $exchange;
     }
 
     /**
@@ -136,10 +146,9 @@ class RabbitMqService
         $exchangeType = $this->exchangeType;
         $exchangeName = $this->exchangeName;
         $errorExchangeName = $this->getErrorExchangeName();
-        $args = ['x-delayed-type' => 'direct'];
 
         // 指定交换机
-        $channel->exchange_declare($exchangeName, $exchangeType, false, true, false, false, false, $args);
+        $channel->exchange_declare($exchangeName, $exchangeType, false, true, false);
         $channel->exchange_declare($errorExchangeName, $exchangeType, false, true, false);
     }
 
@@ -307,12 +316,11 @@ class RabbitMqService
      */
     public function writeMessage($ableId, $ableType, $event, $status = 0)
     {
-        RabbitMqLog::query()->updateOrCreate([
+        RabbitMqLog::query()->create([
             'able_id'   => $ableId,
             'able_type' => $ableType,
             'event'     => $event,
-        ], [
-            'status' => $status
+            'status'    => $status
         ]);
     }
 
