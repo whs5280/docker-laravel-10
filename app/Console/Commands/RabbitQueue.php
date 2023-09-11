@@ -2,9 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\HandleConsume;
-use App\Models\User;
-use App\Services\RabbitMqService;
+
+use App\Common\Helpers\RabbitMqHelper;
 use Illuminate\Console\Command;
 
 class RabbitQueue extends Command
@@ -14,7 +13,7 @@ class RabbitQueue extends Command
      *
      * @var string
      */
-    protected $signature = 'app:rabbit-queue';
+    protected $signature = 'app:rabbit-queue-test';
 
     /**
      * The console command description.
@@ -29,7 +28,11 @@ class RabbitQueue extends Command
     public function handle()
     {
         // 测试
-        dispatch(new HandleConsume());
+        $mq = RabbitMqHelper::TestAMQP();
+        $mq->send([
+            'class_name' => 'Test',
+            'id'         => '100',
+        ]);
 
         $this->info('生产者---开始投递');
     }

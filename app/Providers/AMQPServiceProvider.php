@@ -12,12 +12,10 @@ class AMQPServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(RabbitMq::class, function () {
-
+        $this->app->singleton('MQ', function () {
             $rabbitMq = new RabbitMq();
             $rabbitMq->init();
             return $rabbitMq;
-
         });
     }
 
@@ -27,13 +25,5 @@ class AMQPServiceProvider extends ServiceProvider
     public function boot(): void
     {
 
-    }
-
-    /**
-     * @return array|string[]
-     */
-    public function provides()
-    {
-        return [RabbitMq::class];
     }
 }
