@@ -1,0 +1,7 @@
+{
+    "name": "app:rabbit-queue-test-listen",
+    "args": "",
+    "script": "php ../artisan app:rabbit-queue-test-listen",
+    "exec_mode": "fork",
+    "max_memory_restart": "100M"
+}
