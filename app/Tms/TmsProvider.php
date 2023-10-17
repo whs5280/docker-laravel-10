@@ -5,7 +5,7 @@ namespace App\Tms;
 use App\Tms\Services\TmsService;
 use Illuminate\Support\ServiceProvider;
 
-class TmsProviders extends ServiceProvider
+class TmsProvider extends ServiceProvider
 {
     public function register()
     {
