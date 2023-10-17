@@ -171,6 +171,7 @@ return [
 
         App\Providers\AMQPServiceProvider::class,
         App\Tms\TmsProvider::class,
+        App\Comment\CommentProvider::class,
     ])->toArray(),
 
     /*
