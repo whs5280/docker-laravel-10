@@ -170,6 +170,7 @@ return [
         App\Providers\RouteServiceProvider::class,
 
         App\Providers\AMQPServiceProvider::class,
+        App\Tms\TmsProviders::class,
     ])->toArray(),
 
     /*
