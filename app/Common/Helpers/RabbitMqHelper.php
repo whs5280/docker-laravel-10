@@ -11,7 +11,7 @@ class RabbitMqHelper
      */
     public static function TestAMQP()
     {
-        $mq = app()->make('MQ');
+        $mq = app('MQ');
         $mq->exchange_name = 'test';
         $mq->queue_name    = 'test';
         $mq->route_key     = 'message';
@@ -25,7 +25,7 @@ class RabbitMqHelper
      */
     public static function DBMigrateEsAMQP()
     {
-        $mq = app()->make('MQ');
+        $mq = app('MQ');
         $mq->exchange_name = 'db_migrate_es';
         $mq->queue_name    = 'db_migrate_es';
         $mq->route_key     = 'message';
