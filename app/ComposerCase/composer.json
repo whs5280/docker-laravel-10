@@ -1,0 +1,22 @@
+{
+    "name": "whs/php-composer-test",
+    "description": "To test case for composer.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Whs",
+            "email": "wanghangsheng@qq.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": "^8.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "../../app/",
+            "Carbon\\": "../../vendor/nesbot/carbon/src/Carbon"
+        }
+    }
+}
