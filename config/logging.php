@@ -22,6 +22,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Default Log Driver
+    |--------------------------------------------------------------------------
+    |
+    | This option defines the default log channel that gets used when writing
+    | messages to the logs. The name specified in this option should match
+    | one of the channels defined in the "channels" configuration array.
+    |
+    */
+
+    'driver' => env('LOG_DRIVER', 'aliyun'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Deprecations Log Channel
     |--------------------------------------------------------------------------
     |
@@ -128,4 +141,17 @@ return [
         ],
     ],
 
+    'aliyun' => [
+        'driver' => 'custom',
+        'via'    => App\Services\LogService::class,
+        'accessKeyId'       => env('LOG_ALIYUN_ACCESS_KEY_ID'),
+        'accessKeySecret'   => env('LOG_ALIYUN_ACCESS_KEY_SECRET'),
+        'endpoint'  => env('LOG_ALIYUN_ENDPOINT'),
+        'project'   => env('LOG_ALIYUN_PROJECT'),
+        'logstore'  => env('LOG_ALIYUN_LOGSTORE'),
+        'topic'     => env('LOG_ALIYUN_TOPIC'),
+        'source'    => env('LOG_ALIYUN_SOURCE'),
+        'level'     => env('LOG_LEVEL', 'debug'),
+        'replace_placeholders' => true,
+    ],
 ];
