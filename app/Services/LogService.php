@@ -15,7 +15,7 @@ class LogService
             default  => config("logging.aliyun"),
         };
 
-        self::$client = new \Aliyun_Log_Client($config['endpoint'], $config['accessKeyId'], $config['accessKey']);
+        self::$client = new \Aliyun_Log_Client($config['endpoint'], $config['accessKeyId'], $config['accessKeySecret']);
         self::$project = $config['project'];
     }
 
@@ -26,35 +26,33 @@ class LogService
             $topic  = config('app.name');
             $source = config('app.name');
 
-            $contents = [
+            $logItem = new \Aliyun_Log_Models_LogItem();
+            $logItem->setTime(time());
+            $logItem->setContents(array(
                 'level' => $level,
                 'message' => $message,
-                'context' => $context,
-            ];
+                'context' => json_encode($context, JSON_UNESCAPED_UNICODE),
+            ));
 
-            $contents = json_encode($contents, JSON_UNESCAPED_UNICODE);
+            $request = new \Aliyun_Log_Models_PutLogsRequest(self::$project, $logstore, $topic, $source, array($logItem));
+            self::$client->putLogs($request);
 
-            $request = new \Aliyun_Log_Models_PutLogsRequest(self::$project, $logstore, $topic, $source, $contents);
-            $response = self::$client->putLogs($request);
-            var_dump($response);
-
-        } catch (\Exception $e) {
-            var_dump($e->getCode());
-            var_dump($e->getMessage());
+        } catch (\Aliyun_Log_Exception|\Exception $ex) {
+            var_dump($ex);
         }
     }
 
-    public static function debug($message, array $context = []) : void
+    public function debug($message, array $context = []) : void
     {
         self::log('debug', $message, $context);
     }
 
-    public static function info($message, array $context = []) : void
+    public function info($message, array $context = []) : void
     {
         self::log('info', $message, $context);
     }
 
-    public static function send() : void
+    public function send() : void
     {
         try {
             $request = new \Aliyun_Log_Models_ListLogstoresRequest(self::$project);
