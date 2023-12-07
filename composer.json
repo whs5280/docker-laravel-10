@@ -13,7 +13,9 @@
         "laravel/sanctum": "^3.2",
         "laravel/tinker": "^2.8",
         "lustre/php-dfa-sensitive": "^1.4",
-        "php-amqplib/php-amqplib": "^2.8"
+        "php-amqplib/php-amqplib": "^2.8",
+        "ext-pcntl": "*",
+        "ext-posix": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",
